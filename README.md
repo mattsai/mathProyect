@@ -1,4 +1,4 @@
-Proyecto realizado con la finalidad de ayudar a aprender, estudiar, repasar, operaciones básicas de matematicas tales como: 
+Proyecto realizado con la finalidad de ayudar a mi novia a aprender, estudiar, repasar, operaciones básicas de matematicas tales como: 
 * Sumas
 * Restas
 * Multiplicación
