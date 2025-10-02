@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algebra Challenge</title>
+    <style>
+        /* General Styles */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; color: #333; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); width: 90%; max-width: 700px; text-align: center; }
+        h1 { color: #34a853; margin-bottom: 20px; }
+        #problem-display { font-size: 2.2rem; font-weight: bold; color: #333; margin: 20px 0; padding: 20px; background-color: #f9f9f9; border-radius: 8px; word-wrap: break-word; word-break: break-all; }
+        #timer-display { font-size: 1.5rem; color: #1a73e8; font-weight: bold; margin-bottom: 20px; }
+        .input-group { display: flex; flex-direction: column; gap: 15px; align-items: center; margin-bottom: 20px; }
+        .input-row { display: flex; align-items: center; justify-content: center; gap: 15px; }
+        .input-row label { font-size: 1.2rem; width: 180px; text-align: right; }
+        .input-row input { width: 100px; padding: 10px; font-size: 1.2rem; text-align: center; border: 2px solid #ccc; border-radius: 8px; }
+        button { background-color: #4caf50; color: white; border: none; padding: 12px 25px; font-size: 1.1rem; border-radius: 8px; cursor: pointer; transition: background-color 0.3s, transform 0.2s; }
+        button:hover { background-color: #45a049; transform: translateY(-2px); }
+        button:disabled { background-color: #9e9e9e; cursor: not-allowed; transform: none; }
+        #restart-btn { background-color: #ff9800; }
+        #restart-btn:hover { background-color: #e68900; }
+        #feedback-container { margin-top: 30px; padding: 20px; border-radius: 8px; font-size: 1.1rem; text-align: left; line-height: 1.6; }
+        .correct { background-color: #e8f5e9; border: 1px solid #4caf50; color: #2e7d32; }
+        .incorrect { background-color: #ffebee; border: 1px solid #e53935; color: #c62828; }
+        #feedback-container h3 { margin-top: 0; }
+        #feedback-container p { margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Algebra Challenge</h1>
+        <p>Agrupa los términos semejantes y encuentra los coeficientes correctos.</p>
+        <div id="problem-display">Cargando...</div>
+        <p id="timer-display">Tiempo restante: 30s</p>
+        
+        <div class="input-group">
+            <div class="input-row">
+                <label for="x-input">Coeficiente de x:</label>
+                <input type="number" id="x-input" placeholder="?">
+            </div>
+            <div class="input-row">
+                <label for="y-input">Coeficiente de y:</label>
+                <input type="number" id="y-input" placeholder="?">
+            </div>
+            <div class="input-row">
+                <label for="constant-input">Término independiente:</label>
+                <input type="number" id="constant-input" placeholder="?">
+            </div>
+        </div>
+        
+        <div class="input-group" style="flex-direction: row; gap: 20px;">
+            <button id="submit-btn">Verificar</button>
+            <button id="restart-btn" style="display: none;">Reiniciar</button>
+        </div>
+        
+        <div id="feedback-container"></div>
+    </div>
+    <script>
+        // --- DATA AND CONFIGURATION ---
+        const timeLimitSeconds = 30;
+        // --- DOM ELEMENTS ---
+        const problemDisplay = document.getElementById('problem-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const xInput = document.getElementById('x-input');
+        const yInput = document.getElementById('y-input');
+        const constantInput = document.getElementById('constant-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const feedbackContainer = document.getElementById('feedback-container');
+        let timeLeft = timeLimitSeconds;
+        let timerInterval;
+        let isGameActive = true;
+        let correctAnswer = { x: 0, y: 0, constant: 0 };
+
+        /**
+         * Generates a random algebraic expression with x, y, and constant terms.
+         * @returns {{problem: string, answer: {x: number, y: number, constant: number}}}
+         */
+        function generateAlgebraProblem() {
+            let xCoeff = 0, yCoeff = 0, constant = 0;
+            let termObjects = [];
+
+            // Guarantee at least one of each type for a good problem
+            termObjects.push({ type: 'x', coeff: (Math.floor(Math.random() * 10) + 1) * (Math.random() < 0.5 ? -1 : 1) });
+            termObjects.push({ type: 'y', coeff: (Math.floor(Math.random() * 10) + 1) * (Math.random() < 0.5 ? -1 : 1) });
+            termObjects.push({ type: 'c', coeff: (Math.floor(Math.random() * 10) + 1) * (Math.random() < 0.5 ? -1 : 1) });
+
+            // Add 1-2 more random terms for complexity
+            const extraTerms = Math.floor(Math.random() * 2) + 1;
+            for (let i = 0; i < extraTerms; i++) {
+                const type = ['x', 'y', 'c'][Math.floor(Math.random() * 3)];
+                const coeff = (Math.floor(Math.random() * 10) + 1) * (Math.random() < 0.5 ? -1 : 1);
+                termObjects.push({ type, coeff });
+            }
+
+            // Shuffle the terms to make it less predictable
+            termObjects.sort(() => Math.random() - 0.5);
+
+            // Calculate final coefficients and build the problem string
+            let problemString = '';
+            termObjects.forEach((term, index) => {
+                xCoeff += term.type === 'x' ? term.coeff : 0;
+                yCoeff += term.type === 'y' ? term.coeff : 0;
+                constant += term.type === 'c' ? term.coeff : 0;
+
+                let sign = term.coeff >= 0 ? '+' : '-';
+                let absCoeff = Math.abs(term.coeff);
+                let varPart = term.type === 'x' ? 'x' : (term.type === 'y' ? 'y' : '');
+
+                if (index === 0) {
+                    problemString += `${sign === '+' ? '' : '-'} ${absCoeff}${varPart}`;
+                } else {
+                    problemString += ` ${sign} ${absCoeff}${varPart}`;
+                }
+            });
+            
+            problemString = problemString.replace(/\s+/g, ' ').trim();
+
+            return {
+                problem: problemString,
+                answer: { x: xCoeff, y: yCoeff, constant: constant }
+            };
+        }
+
+        // --- GAME LOGIC ---
+        function initializeGame() {
+            const { problem: newProblem, answer: newAnswer } = generateAlgebraProblem();
+            problem = newProblem;
+            correctAnswer = newAnswer;
+            problemDisplay.textContent = problem;
+            
+            // Reset UI
+            feedbackContainer.innerHTML = '';
+            feedbackContainer.className = '';
+            xInput.value = '';
+            yInput.value = '';
+            constantInput.value = '';
+            xInput.disabled = false;
+            yInput.disabled = false;
+            constantInput.disabled = false;
+            submitBtn.disabled = false;
+            submitBtn.style.display = 'inline-block';
+            restartBtn.style.display = 'none';
+            isGameActive = true;
+            timeLeft = timeLimitSeconds;
+            timerDisplay.textContent = `Tiempo restante: ${timeLeft}s`;
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `Tiempo restante: ${timeLeft}s`;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function checkAnswer() {
+            if (!isGameActive) return;
+            const userX = parseInt(xInput.value);
+            const userY = parseInt(yInput.value);
+            const userConstant = parseInt(constantInput.value);
+            clearInterval(timerInterval);
+            endGame({ x: userX, y: userY, constant: userConstant });
+        }
+        
+        function endGame(userAnswer = null) {
+            isGameActive = false;
+            xInput.disabled = true;
+            yInput.disabled = true;
+            constantInput.disabled = true;
+            submitBtn.disabled = true;
+            timerDisplay.textContent = 'Tiempo agotado.';
+
+            const isCorrect = userAnswer && userAnswer.x === correctAnswer.x && userAnswer.y === correctAnswer.y && userAnswer.constant === correctAnswer.constant;
+
+            if (isCorrect) {
+                feedbackContainer.className = 'correct';
+                feedbackContainer.innerHTML = `<h3>¡Correcto!</h3><p>Has agrupado los términos perfectamente.</p>`;
+            } else {
+                feedbackContainer.className = 'incorrect';
+                const userAnsStr = userAnswer ? `${userAnswer.x}x + ${userAnswer.y}y + ${userAnswer.constant}` : 'N/A';
+                const correctAnsStr = `${correctAnswer.x}x + ${correctAnswer.y}y + ${correctAnswer.constant}`;
+                feedbackContainer.innerHTML = `
+                    <h3>Resultado Incorrecto</h3>
+                    <p>Tu respuesta: <strong>${userAnsStr}</strong></p>
+                    <p>La respuesta correcta es: <strong>${correctAnsStr}</strong></p>
+                `;
+            }
+            restartBtn.style.display = 'inline-block';
+        }
+
+        // --- EVENT LISTENERS ---
+        submitBtn.addEventListener('click', checkAnswer);
+        restartBtn.addEventListener('click', () => {
+            initializeGame();
+            startTimer();
+        });
+        // Allow submitting with Enter key in any input
+        [xInput, yInput, constantInput].forEach(input => {
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    checkAnswer();
+                }
+            });
+        });
+
+        // --- INITIALIZATION ---
+        initializeGame();
+        startTimer();
+    </script>
+</body>
+</html>
