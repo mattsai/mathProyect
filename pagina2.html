@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchy Challenge</title>
+    <style>
+        /* General Styles */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; color: #333; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); width: 90%; max-width: 700px; text-align: center; }
+        h1 { color: #e53935; margin-bottom: 20px; }
+        #problem-display { font-size: 2.5rem; font-weight: bold; color: #333; margin: 20px 0; padding: 20px; background-color: #f9f9f9; border-radius: 8px; word-wrap: break-word; word-break: break-all; }
+        #timer-display { font-size: 1.5rem; color: #1a73e8; font-weight: bold; margin-bottom: 20px; }
+        .input-group { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; }
+        #answer-input { width: 150px; padding: 12px; font-size: 1.5rem; text-align: center; border: 2px solid #ccc; border-radius: 8px; }
+        button { background-color: #4caf50; color: white; border: none; padding: 12px 25px; font-size: 1.1rem; border-radius: 8px; cursor: pointer; transition: background-color 0.3s, transform 0.2s; }
+        button:hover { background-color: #45a049; transform: translateY(-2px); }
+        button:disabled { background-color: #9e9e9e; cursor: not-allowed; transform: none; }
+        #restart-btn { background-color: #ff9800; }
+        #restart-btn:hover { background-color: #e68900; }
+        #feedback-container { margin-top: 30px; padding: 20px; border-radius: 8px; font-size: 1.1rem; text-align: left; line-height: 1.6; }
+        .correct { background-color: #e8f5e9; border: 1px solid #4caf50; color: #2e7d32; }
+        .incorrect { background-color: #ffebee; border: 1px solid #e53935; color: #c62828; }
+        #feedback-container h3 { margin-top: 0; }
+        #feedback-container ul { padding-left: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hierarchy Challenge</h1>
+        <p>Resuelve la siguiente operación en 30 segundos.</p>
+        <div id="problem-display">Cargando...</div>
+        <p id="timer-display">Tiempo restante: 30s</p>
+        <div class="input-group">
+            <input type="number" id="answer-input" placeholder="Tu respuesta">
+            <button id="submit-btn">Verificar</button>
+            <button id="restart-btn" style="display: none;">Reiniciar</button>
+        </div>
+        <div id="feedback-container"></div>
+    </div>
+    <script>
+        // --- DATA AND CONFIGURATION ---
+        const timeLimitSeconds = 30;
+        // --- DOM ELEMENTS ---
+        const problemDisplay = document.getElementById('problem-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const answerInput = document.getElementById('answer-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const feedbackContainer = document.getElementById('feedback-container');
+        let timeLeft = timeLimitSeconds;
+        let timerInterval;
+        let isGameActive = true;
+        let problem = '';
+        let correctAnswer = 0;
+        // --- HELPER FUNCTIONS FOR NUMBER GENERATION ---
+        function getSimpleMultiplicationPair() {
+            const num1 = Math.floor(Math.random() * 8) + 2; // 2 to 9
+            const num2 = Math.floor(Math.random() * 8) + 2; // 2 to 9
+            return { num1, num2 };
+        }
+        function getSimpleDivisionPair() {
+            const divisor = Math.floor(Math.random() * 8) + 2; // 2 to 9
+            const quotient = Math.floor(Math.random() * 8) + 2; // 2 to 9
+            const dividend = divisor * quotient;
+            return { dividend, divisor };
+        }
+        // --- MAIN PROBLEM GENERATION LOGIC ---
+        function generateHierarchyProblem() {
+            let problemString = '';
+            const problemType = Math.floor(Math.random() * 6); // 0 to 5
+            switch (problemType) {
+                case 0: // Type: a + b * c or a - b * c (Simple)
+                    const { num1: b1, num2: c1 } = getSimpleMultiplicationPair();
+                    const multResult1 = b1 * c1;
+                    const target1 = Math.floor(Math.random() * 20) + 1;
+                    const a1 = target1 + multResult1;
+                    const op1 = Math.random() < 0.5 ? '+' : '-';
+                    problemString = `${a1} ${op1} ${b1} × ${c1}`;
+                    break;
+                case 1: // Type: a * b / c (Simple)
+                    let a2, b2, c2;
+                    do {
+                        const { num1, num2 } = getSimpleMultiplicationPair();
+                        a2 = num1;
+                        b2 = num2;
+                        c2 = Math.floor(Math.random() * 8) + 2; // 2 to 9
+                    } while ((a2 * b2) % c2 !== 0);
+                    problemString = `${a2} × ${b2} ÷ ${c2}`;
+                    break;
+                case 2: // Type: (a * b) + c or (a * b) - c (Simple)
+                    const { num1: a3, num2: b3 } = getSimpleMultiplicationPair();
+                    const multResult2 = a3 * b3;
+                    const c3 = Math.floor(Math.random() * 20) + 1;
+                    const op2 = Math.random() < 0.5 ? '+' : '-';
+                    problemString = `(${a3} × ${b3}) ${op2} ${c3}`;
+                    break;
+                case 3: // Type: (a * b) + c - (d * e) (Complex, balanced)
+                    const { num1: a4, num2: b4 } = getSimpleMultiplicationPair();
+                    const { num1: d4, num2: e4 } = getSimpleMultiplicationPair();
+                    const res1 = a4 * b4;
+                    const res2 = d4 * e4;
+                    const target2 = Math.floor(Math.random() * 15) + 1; // Target final result
+                    const c4 = target2 - (res1 - res2);
+                    problemString = `(${a4} × ${b4}) + ${c4} - (${d4} × ${e4})`;
+                    break;
+                case 4: // Type: a + b / c - d * e (User's favorite, balanced)
+                    const { dividend: b5, divisor: c5 } = getSimpleDivisionPair();
+                    const { num1: d5, num2: e5 } = getSimpleMultiplicationPair();
+                    const divResult = b5 / c5;
+                    const multResult3 = d5 * e5;
+                    const target3 = Math.floor(Math.random() * 15) + 1;
+                    const a5 = target3 - divResult + multResult3;
+                    problemString = `${a5} + ${b5} ÷ ${c5} - ${d5} × ${e5}`;
+                    break;
+                case 5: // Type: a + b - c * d (Simple, 4 terms)
+                    const { num1: c6, num2: d6 } = getSimpleMultiplicationPair();
+                    const multResult4 = c6 * d6;
+                    const target4 = multResult4 + (Math.floor(Math.random() * 10) - 5); // Target sum is close to mult result
+                    const a6 = Math.floor(Math.random() * 15) + 1;
+                    const b6 = target4 - a6;
+                    problemString = `${a6} + ${b6} - ${c6} × ${d6}`;
+                    break;
+            }
+            const evalString = problemString.replace(/×/g, '*').replace(/÷/g, '/');
+            const answer = Math.round(eval(evalString));
+            return { problem: problemString, answer: answer };
+        }
+        // --- GAME LOGIC (UI, Timer, etc.) ---
+        function initializeGame() {
+            const { problem: newProblem, answer: newAnswer } = generateHierarchyProblem();
+            problem = newProblem;
+            correctAnswer = newAnswer;
+            problemDisplay.textContent = problem;
+            feedbackContainer.innerHTML = '';
+            feedbackContainer.className = '';
+            answerInput.value = '';
+            answerInput.disabled = false;
+            submitBtn.disabled = false;
+            submitBtn.style.display = 'inline-block';
+            restartBtn.style.display = 'none';
+            isGameActive = true;
+            timeLeft = timeLimitSeconds;
+            timerDisplay.textContent = `Tiempo restante: ${timeLeft}s`;
+        }
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `Tiempo restante: ${timeLeft}s`;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+        function checkAnswer() {
+            if (!isGameActive) return;
+            const userAnswer = parseInt(answerInput.value);
+            clearInterval(timerInterval);
+            endGame(userAnswer);
+        }
+        function endGame(userAnswer = null) {
+            isGameActive = false;
+            answerInput.disabled = true;
+            submitBtn.disabled = true;
+            timerDisplay.textContent = 'Tiempo agotado.';
+            if (userAnswer === correctAnswer) {
+                feedbackContainer.className = 'correct';
+                feedbackContainer.innerHTML = `<h3>¡Correcto!</h3><p>Has resuelto la operación perfectamente. El resultado es <strong>${correctAnswer}</strong>.</p>`;
+            } else {
+                feedbackContainer.className = 'incorrect';
+                feedbackContainer.innerHTML = `
+                    <h3>Resultado Incorrecto</h3>
+                    <p>Tu respuesta: <strong>${userAnswer !== null ? userAnswer : 'N/A'}</strong></p>
+                    <p>El resultado correcto es <strong>${correctAnswer}</strong>.</p>
+                    <hr>
+                    <p><strong>Recuerda el orden jerárquico de operaciones (PEMDAS/BODMAS):</strong></p>
+                    <ul>
+                        <li><strong>P</strong>aréntesis</li>
+                        <li><strong>E</strong>xponentes</li>
+                        <li><strong>M</strong>ultiplicación (<strong>×</strong>) y <strong>D</strong>ivisión (<strong>÷</strong>) (izquierda a derecha)</li>
+                        <li><strong>A</strong>ddición y <strong>S</strong>ustracción (izquierda a derecha)</li>
+                    </ul>
+                `;
+            }
+            restartBtn.style.display = 'inline-block';
+        }
+        // --- EVENT LISTENERS ---
+        submitBtn.addEventListener('click', checkAnswer);
+        restartBtn.addEventListener('click', () => {
+            initializeGame();
+            startTimer();
+        });
+        answerInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+        // --- INITIALIZATION ---
+        initializeGame();
+        startTimer();
+    </script>
+</body>
+</html>
